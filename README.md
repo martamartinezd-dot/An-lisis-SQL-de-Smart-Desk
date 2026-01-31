@@ -113,10 +113,3 @@ El proyecto busca responder a la siguiente pregunta de negocio:
 A partir de los análisis realizados, se identifican sectores con alto volumen de ventas pero menor eficiencia, así como industrias con menor peso en ventas pero alta rentabilidad por unidad.  
 Esto permite plantear recomendaciones estratégicas basadas en datos.
 
----
-
-## Notas
-
-- Todas las consultas incluyen agregaciones a nivel de industria, categoría o país.
-- Se utiliza `NULLIF` para evitar errores de división por cero en los cálculos de eficiencia.
-- El repositorio está orientado a fines académicos y de análisis estratégico.
