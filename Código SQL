@@ -1,0 +1,134 @@
+-- Análisis SQL de ventas y rentabilidad para la optimización del crecimiento en Smart Desk--
+
+-- Marta Martínez Delgado --
+
+USE DATABASE UCM;
+USE SCHEMA SMART_DESK;
+USE WAREHOUSE PONY_WH;
+USE ROLE TRAINING_ROLE;
+
+--1. Análisis de ventas y beneficio por categoría de producto --
+
+SELECT CATEGORY AS "Categoría", SUM(MAINTENANCE) AS "Mantenimiento", SUM(PRODUCT) AS "Producto", SUM(PARTS) AS "Partes", SUM(SUPPORT) AS "Soporte", SUM(TOTAL) AS "Total Ventas", SUM(UNITS_SOLD) AS "Unidades Vendidas", SUM(PROFIT) AS "Beneficio total"
+FROM SALES
+WHERE YEAR = 2020 AND ACCOUNT = 'Adabs Entertainment'
+GROUP BY CATEGORY
+ORDER BY CATEGORY;
+
+--2. Comparación de rendimiento por país en regiones APAC y EMEA--
+
+SELECT A.REGION AS "Región", A.COUNTRY AS "País", AVG(S.TOTAL) AS "Ingreso Promedio", AVG(S.UNITS_SOLD) AS "Unidades Vendidas Promedio", AVG(S.PROFIT) AS "Beneficio Promedio"
+FROM ACCOUNTS AS A JOIN SALES AS S
+ON A.ACCOUNT = S.ACCOUNT
+WHERE A.REGION IN ('APAC', 'EMEA')
+GROUP BY A.REGION, A.COUNTRY
+ORDER BY A.REGION;
+
+--3. Análisis del beneficio total por industria: estudio de clientes en etapa de compromiso--
+
+SELECT C.INDUSTRY AS "Industria", SUM(S.PROFIT) AS "Beneficio total",
+CASE WHEN SUM(S.PROFIT) > 1000000 THEN 'Alto'
+ELSE 'Normal'
+END AS "Categoría según beneficio"
+FROM accounts C
+JOIN sales S
+ON C.ACCOUNT = S.ACCOUNT
+JOIN (SELECT DISTINCT ACCOUNT
+FROM forecasts
+WHERE PREDICTION_CATEGORY = 'Commit'
+AND FORECAST > 500000
+) F
+ON F.ACCOUNT = C.ACCOUNT
+GROUP BY C.INDUSTRY
+ORDER BY "Beneficio total" DESC;
+
+--4. Evolución del pronóstico y beneficio real: análisis de la trayectoria por categoría --
+
+SELECT 
+COALESCE(S.CATEGORY, F.CATEGORY) AS "Categoría",
+COALESCE(SUM(S.PROFIT), 0) AS "Beneficio total 2021",
+COALESCE(SUM(F.FORECAST), 0) AS "Pronóstico total 2022",
+MIN(OPPORTUNITY_AGE) AS "Oportunidad más reciente",
+MAX(OPPORTUNITY_AGE) AS "Oportunidad más antigua"
+FROM SALES AS S FULL OUTER JOIN FORECASTS AS F
+ON S.CATEGORY = F.CATEGORY AND S.YEAR = F.YEAR
+WHERE (S.YEAR = 2021 OR F.YEAR = 2022)
+GROUP BY COALESCE(S.CATEGORY, F.CATEGORY)
+ORDER BY "Categoría";
+
+--CASO PRÁCTICO--
+
+-- 5.2.1 Distribución de ventas, beneficio y número de cuentas por industria --
+
+SELECT 
+    C.INDUSTRY AS INDUSTRIA,
+    COUNT(DISTINCT S.ACCOUNT) AS NUM_CUENTAS,
+    SUM(S.TOTAL) AS VENTAS_TOTALES,
+    SUM(S.PROFIT) AS BENEFICIO_TOTAL
+FROM SALES AS S
+JOIN ACCOUNTS AS C
+    ON S.ACCOUNT = C.ACCOUNT
+GROUP BY C.INDUSTRY
+ORDER BY VENTAS_TOTALES DESC;
+
+-- 5.2.2 Relación entre unidades vendidas y beneficio total por industria --
+
+SELECT 
+    C.INDUSTRY AS INDUSTRIA,
+    SUM(S.UNITS_SOLD) AS UNIDADES_VENDIDAS,
+    SUM(S.PROFIT) AS BENEFICIO_TOTAL
+FROM SALES AS S
+JOIN ACCOUNTS AS C
+    ON S.ACCOUNT = C.ACCOUNT
+GROUP BY C.INDUSTRY
+ORDER BY UNIDADES_VENDIDAS DESC;
+
+
+-- 5.2.3 Análisis del beneficio medio por unidad vendida por industria --
+
+SELECT 
+    C.INDUSTRY AS INDUSTRIA,
+    SUM(S.PROFIT) AS BENEFICIO_TOTAL,
+    SUM(S.UNITS_SOLD) AS UNIDADES_VENDIDAS,
+    SUM(S.PROFIT) / NULLIF(SUM(S.UNITS_SOLD), 0) AS BENEFICIO_POR_UNIDAD
+FROM SALES AS S
+JOIN ACCOUNTS AS C
+    ON S.ACCOUNT = C.ACCOUNT
+GROUP BY C.INDUSTRY
+ORDER BY BENEFICIO_POR_UNIDAD DESC;
+
+-- 5.3.1 Comparación consolidada de ventas, beneficio y eficiencia por industria --
+
+SELECT 
+    C.INDUSTRY AS INDUSTRIA,
+    SUM(S.TOTAL) AS VENTAS_TOTALES,
+    SUM(S.PROFIT) AS BENEFICIO_TOTAL,
+    SUM(S.UNITS_SOLD) AS UNIDADES_VENDIDAS,
+    SUM(S.PROFIT) / NULLIF(SUM(S.UNITS_SOLD), 0) AS BENEFICIO_POR_UNIDAD
+FROM SALES AS S
+JOIN ACCOUNTS AS C
+    ON S.ACCOUNT = C.ACCOUNT
+GROUP BY C.INDUSTRY
+ORDER BY BENEFICIO_TOTAL DESC;
+
+-- 5.3.2 Clasificación estratégica de industrias según valor económico --
+
+SELECT 
+    INDUSTRIA,
+    BENEFICIO_TOTAL,
+    BENEFICIO_POR_UNIDAD,
+    CASE
+        WHEN BENEFICIO_TOTAL > 10000000 AND BENEFICIO_POR_UNIDAD > 180 THEN 'Alta prioridad estratégica'
+        WHEN BENEFICIO_POR_UNIDAD > 180 THEN 'Alta rentabilidad'
+        ELSE 'Prioridad media o baja'
+    END AS CLASIFICACION_ESTRATEGICA
+FROM (
+    SELECT 
+        C.INDUSTRY AS INDUSTRIA,
+        SUM(S.PROFIT) AS BENEFICIO_TOTAL,
+        SUM(S.PROFIT) / NULLIF(SUM(S.UNITS_SOLD), 0) AS BENEFICIO_POR_UNIDAD
+    FROM SALES AS S
+    JOIN ACCOUNTS AS C
+        ON S.ACCOUNT = C.ACCOUNT
+    GROUP BY C.INDUSTRY
+);
